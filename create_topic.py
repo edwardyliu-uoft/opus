@@ -5,9 +5,14 @@ Python script to create the Kafka topic for the campus cafe event pipeline.
 from confluent_kafka.admin import AdminClient, NewTopic
 
 
-def create_topic(topic: str, num_partitions: int, replication_factor: int):
+def create_topic(
+    bootstrap_servers: str,
+    topic: str,
+    num_partitions: int,
+    replication_factor: int,
+):
     """Create a topic with the specified topic name, number of partitions, and replication factor."""
-    admin_client = AdminClient({"bootstrap.servers": "localhost:9092"})
+    admin_client = AdminClient({"bootstrap.servers": bootstrap_servers})
 
     topic = NewTopic(
         topic=topic,
@@ -32,4 +37,4 @@ def create_topic(topic: str, num_partitions: int, replication_factor: int):
 
 
 if __name__ == "__main__":
-    create_topic("demo", 3, 1)
+    create_topic("localhost:9092", "demo", 3, 1)
