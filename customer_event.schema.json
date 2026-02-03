@@ -1,0 +1,39 @@
+{
+  "type": "object",
+  "title": "CustomerEvent",
+  "description": "Customer interaction event from campus cafe system",
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "description": "Unique event identifier (UUID)"
+    },
+    "customer_name": {
+      "type": "string",
+      "description": "Customer's name"
+    },
+    "drink_name": {
+      "type": "string",
+      "description": "Name of beverage ordered"
+    },
+    "quantity": {
+      "type": "integer",
+      "description": "Number of items ordered",
+      "minimum": 1
+    },
+    "amount": {
+      "type": "number",
+      "description": "Transaction amount in USD",
+      "minimum": 0
+    },
+    "is_member": {
+      "type": "boolean",
+      "description": "Loyalty program membership status"
+    },
+    "ts_utc": {
+      "type": "string",
+      "description": "ISO 8601 timestamp in UTC"
+    }
+  },
+  "required": ["event_id", "customer_name", "drink_name", "quantity", "amount", "is_member", "ts_utc"],
+  "additionalProperties": false
+}
