@@ -67,7 +67,7 @@ def main(bootstrap_servers: str, schema_registry_url: str, topic: str):
     # Set up graceful shutdown
     signal.signal(signal.SIGINT, signal_handler)
 
-    message_count = 0
+    message_counter = 0
     try:
         while running:
             # Poll for messages (timeout in seconds)
@@ -91,7 +91,7 @@ def main(bootstrap_servers: str, schema_registry_url: str, topic: str):
             timestamp = datetime.fromtimestamp(timestamp_ms / 1000.0)
 
             # Display event with formatting
-            print(f"Message #{message_count}")
+            print(f"Message #{message_counter + 1}")
             print(f"\t├─ Partition: {partition} | Offset: {offset}")
             print(f"\t├─ Kafka Timestamp: {timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
             print(f"\t├─ Event ID: {event['event_id']}")
@@ -107,7 +107,7 @@ def main(bootstrap_servers: str, schema_registry_url: str, topic: str):
             consumer.commit(asynchronous=False)
 
             # Counter increment
-            message_count += 1
+            message_counter += 1
 
     except Exception as e:
         print(f"Error: {e}")
@@ -115,7 +115,7 @@ def main(bootstrap_servers: str, schema_registry_url: str, topic: str):
         # Clean shutdown
         print("Closing consumer...")
         consumer.close()
-        print(f"Consumer closed. Total messages consumed: {message_count}")
+        print(f"Consumer closed. Total messages consumed: {message_counter}")
 
 
 if __name__ == "__main__":
