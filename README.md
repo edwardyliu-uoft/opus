@@ -374,7 +374,11 @@ docker-compose down -v
 
 This removes all containers, networks, and volumes including stored messages.
 
+---
+
 **Project:** Campus Cafe Event Pipeline  
 **Author:** Edward Liu (edwardy.liu@mail.utoronto.ca)  
 **Version:** 1.0.0  
+**GitHub:** https://github.com/edwardyliu-uoft/opus  
 **Last Updated:** February 2, 2026
+
