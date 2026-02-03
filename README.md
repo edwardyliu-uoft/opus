@@ -90,10 +90,10 @@ docker-compose up -d
 
 **Expected Output:**
 ```
-✔ Network kafka-network       Created
-✔ Container broker-schema     Started
-✔ Container schema-registry   Started
-✔ Container kafka-ui          Started
+[x] Network kafka-network       Created
+[x] Container broker-schema     Started
+[x] Container schema-registry   Started
+[x] Container kafka-ui          Started
 ```
 
 **Verify services are running:**
