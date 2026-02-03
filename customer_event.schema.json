@@ -1,7 +1,7 @@
 {
-  "type": "object",
   "title": "CustomerEvent",
-  "description": "Customer interaction event from campus cafe system",
+  "type": "object",
+  "description": "Customer interaction event via campus cafe system",
   "properties": {
     "event_id": {
       "type": "string",
@@ -9,7 +9,7 @@
     },
     "customer_name": {
       "type": "string",
-      "description": "Customer's name"
+      "description": "Full name of customer"
     },
     "drink_name": {
       "type": "string",
@@ -22,7 +22,7 @@
     },
     "amount": {
       "type": "number",
-      "description": "Transaction amount in USD",
+      "description": "Transaction amount in CAD",
       "minimum": 0
     },
     "is_member": {
@@ -34,6 +34,14 @@
       "description": "ISO 8601 timestamp in UTC"
     }
   },
-  "required": ["event_id", "customer_name", "drink_name", "quantity", "amount", "is_member", "ts_utc"],
+  "required": [
+    "event_id",
+    "customer_name",
+    "drink_name",
+    "quantity",
+    "amount",
+    "is_member",
+    "ts_utc"
+  ],
   "additionalProperties": false
 }
