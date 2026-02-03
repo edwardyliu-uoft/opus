@@ -111,7 +111,7 @@ def main(bootstrap_servers: str, schema_registry_url: str, topic: str):
         time.sleep(0.2)
 
     # Wait for all messages to be delivered
-    print("Flushing remaining messages...")
+    print("\nFlushing remaining messages...")
     producer.flush()
 
     print("All messages sent successfully!")
