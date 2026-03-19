@@ -1,0 +1,33 @@
+[project]
+name = "opus"
+version = "0.1.0"
+description = "A Simple Real-Time Data Streaming Architecture Designed for Live Financial Dashboard Visualization and Machine Learning Model Training"
+readme = "README.md"
+requires-python = ">=3.9,<3.13"
+dependencies = [
+    "confluent-kafka",
+    "apache-flink",
+    "pyspark",
+    "streamlit",
+    "redis",
+    "fastavro",
+    "plotly",
+    "httpx",
+    "authlib",
+]
+
+[dependency-groups]
+dev = ["pytest", "pytest-asyncio"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv]
+link-mode = "copy"
+
+[project.scripts]
+opus = "opus.cli:main"
+
+[tool.pytest.ini_options]
+filterwarnings = ["ignore::DeprecationWarning:pyflink.*"]
