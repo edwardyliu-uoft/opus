@@ -238,7 +238,7 @@ def main() -> None:
     st.caption(
         "Redis-backed live view of 5-minute ticker candlesticks, EMA-9, and EMA-12."
     )
-    
+
     # Initialize redis connection
     try:
         store = get_redis_store()
@@ -247,7 +247,7 @@ def main() -> None:
         return
 
     st.sidebar.header("Controls")
-    
+
     tickers = store.get_available_tickers()
     if not tickers:
         st.warning("No tickers found in Redis. Ensure ingest service is running.")
@@ -292,7 +292,7 @@ def main() -> None:
         st.info(f"No chartable points yet for {selected_ticker}.")
     else:
         _render_ticker_chart(selected_ticker, candles, ema9_points, ema12_points)
-        
+
         # Display latest quote
         latest = candles[-1]
         st.metric(
@@ -306,7 +306,7 @@ def main() -> None:
         st.rerun()
 
 
-def launch_dashboard(
+def ui_app(
     *,
     address: str = "0.0.0.0",
     port: int = DEFAULT_STREAMLIT_PORT,

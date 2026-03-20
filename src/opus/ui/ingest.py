@@ -41,7 +41,7 @@ class IngestWorker:
             "bootstrap.servers": bootstrap_servers,
             "group.id": "opus-redis-ingester",
             "auto.offset.reset": "earliest",
-            "enable.auto.commit": False, 
+            "enable.auto.commit": False,
         }
         self.consumer = Consumer(conf)
         self.consumer.subscribe(self.topics)
@@ -69,7 +69,7 @@ class IngestWorker:
         ticker = data.get("ticker")
         if not ticker:
             return
-            
+
         # Push to Redis Sorted Set
         # Score = timestamp
         # Member = entire json
@@ -77,19 +77,23 @@ class IngestWorker:
             timestamp_str = data.get(score_key)
             if not timestamp_str:
                 return
-            
+
             # Simple ISO parsing for sorting score
             # ideally use numeric timestamp.
             # We use the helper in storage.py
-            
+
             # Use RedisStorage helper
             if topic == KAFKA_TOPIC_OHLC_5M:
                 self.redis_client.push_records("ohlc", [data], score_key="window_end")
                 self.redis_client.register_ticker(ticker)
             elif topic == KAFKA_TOPIC_EMA_9:
-                self.redis_client.push_records("ema9", [data], score_key="snapshot_time")
+                self.redis_client.push_records(
+                    "ema9", [data], score_key="snapshot_time"
+                )
             elif topic == KAFKA_TOPIC_EMA_12:
-                self.redis_client.push_records("ema12", [data], score_key="snapshot_time")
+                self.redis_client.push_records(
+                    "ema12", [data], score_key="snapshot_time"
+                )
 
         except Exception as e:
             logger.error(f"Error processing message: {e}")
@@ -103,7 +107,7 @@ class IngestWorker:
                     continue
 
                 if msg.error():
-                    if msg.error().code() == -191: # _PARTITION_EOF
+                    if msg.error().code() == -191:  # _PARTITION_EOF
                         continue
                     else:
                         logger.error(msg.error())
@@ -119,9 +123,11 @@ class IngestWorker:
             logger.info("Closing consumer...")
             self.consumer.close()
 
-def main():
+
+def ui_ingest(topics=None):
     worker = IngestWorker(bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS)
     worker.run()
 
+
 if __name__ == "__main__":
-    main()
+    ui_ingest()

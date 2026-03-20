@@ -26,6 +26,9 @@ build-backend = "setuptools.build_meta"
 [tool.uv]
 link-mode = "copy"
 
+[tool.uv.extra-build-dependencies]
+apache-beam = ["setuptools<81"]
+
 [project.scripts]
 opus = "opus.cli:main"
 
