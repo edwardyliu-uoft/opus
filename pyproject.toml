@@ -13,6 +13,7 @@ dependencies = [
     "plotly",
     "httpx",
     "authlib",
+    "redis",
 ]
 
 [dependency-groups]
