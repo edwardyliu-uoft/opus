@@ -60,14 +60,13 @@ def test_market_stream_ordering(dummy_data_dir):
     assert results[3]["Ticker"] == "MSFT"
 
 
-@pytest.mark.asyncio
 @patch("opus.market.publisher.Producer")
 @patch("opus.market.publisher.SchemaRegistryClient")
 @patch("opus.market.publisher.AvroSerializer")
 @patch("opus.market.publisher.MarketStream")
-@patch("asyncio.sleep")  # Mock sleep so the test runs instantly
-async def test_publish_market_events(
-    mock_sleep,
+@patch("opus.market.publisher.time.sleep")  # Mock sleep so the test runs instantly
+def test_publish_market_events(
+    _mock_sleep,
     MockMarketStream,
     MockAvroSerializer,
     MockSchemaRegistryClient,
@@ -80,14 +79,16 @@ async def test_publish_market_events(
     mock_merger_instance.__iter__.return_value = iter(
         [
             {
-                "Timestamp": 1000000000,
+                "Date": "2024-01-01",
+                "Timestamp": "1000000000",
                 "Price": "150.0",
                 "Quantity": "10",
                 "Ticker": "AAPL",
                 "EventType": "TRADE",
             },
             {
-                "Timestamp": 2000000000,
+                "Date": "2024-01-01",
+                "Timestamp": "2000000000",
                 "Price": "150.5",
                 "Quantity": "15",
                 "Ticker": "AAPL",
@@ -107,7 +108,7 @@ async def test_publish_market_events(
     MockAvroSerializer.return_value = mock_avro_instance
 
     # Run the publisher
-    await publish_market_events(
+    publish_market_events(
         tickers="AAPL",
         start_date="20240101",
         end_date="20240101",

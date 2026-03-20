@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, call, patch
 
 from pyflink.table import TableEnvironment
 
+from opus.process.stream.constants import KAFKA_BOOTSTRAP_SERVERS
 from opus.process.stream.flink_job import process_stream
 
 
@@ -43,13 +44,13 @@ def test_process_stream_initialization_and_submission(
     ]
 
     # 1. First call should be the source table DDL
-    assert "CREATE TABLE market_events" in execute_args[0]
+    assert "CREATE TABLE IF NOT EXISTS market_events" in execute_args[0]
 
     # 2. Next calls should be DDLs for the metrics sinks
-    assert "CREATE TABLE OHLC_5M" in execute_args[1]
-    assert "CREATE TABLE OHLC_15M" in execute_args[2]
-    assert "CREATE TABLE EMA_9" in execute_args[3]
-    assert "CREATE TABLE EMA_12" in execute_args[4]
+    assert "CREATE TABLE IF NOT EXISTS OHLC_5M" in execute_args[1]
+    assert "CREATE TABLE IF NOT EXISTS OHLC_15M" in execute_args[2]
+    assert "CREATE TABLE IF NOT EXISTS EMA_9" in execute_args[3]
+    assert "CREATE TABLE IF NOT EXISTS EMA_12" in execute_args[4]
 
     # Assert statements were added to the statement set
     assert mock_statement_set.add_insert_sql.call_count == 4
@@ -69,10 +70,10 @@ def test_process_stream_initialization_and_submission(
     assert mock_create_topic.call_count == 4
     mock_create_topic.assert_has_calls(
         [
-            call("OHLC_5M", bootstrap_servers="localhost:9092"),
-            call("OHLC_15M", bootstrap_servers="localhost:9092"),
-            call("EMA_9", bootstrap_servers="localhost:9092"),
-            call("EMA_12", bootstrap_servers="localhost:9092"),
+            call("OHLC_5M", bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS),
+            call("OHLC_15M", bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS),
+            call("EMA_9", bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS),
+            call("EMA_12", bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS),
         ],
         any_order=True,
     )
