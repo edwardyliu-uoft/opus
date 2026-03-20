@@ -15,6 +15,23 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def _clear_local_flink_env() -> None:
+    """Clear Flink-related environment variables that can override runtime behavior."""
+
+    flink_envars = [
+        "FLINK_MASTER",
+        "FLINK_HOME",
+        "PYFLINK_HOME",
+        "FLINK_CONF_DIR",
+        "FLINK_LOG_DIR",
+        "FLINK_LOCAL_DIRS",
+        "FLINK_WORKER_DIR",
+    ]
+    for envar in flink_envars:
+        if os.environ.pop(envar, None) is not None:
+            logger.info("Removed environment variable override: %s", envar)
+
+
 def _create_kafka_topic_if_not_exists(
     topic_name: str,
     *,
@@ -47,10 +64,19 @@ def process_stream(create_topics: bool = False):
     Sets up the source/sink Kafka tables;
     and Executes the SQL for all registered metrics continuously.
     """
+    logger.info("Starting Flink Stream Processing...")
+
+    # Ensure no local Flink environment variables interfere with the TableEnvironment configuration
+    _clear_local_flink_env()
 
     # 1. Setup table environment; streaming mode
     env_settings = EnvironmentSettings.in_streaming_mode()
     table_env = TableEnvironment.create(env_settings)
+
+    # Configure Idle Timeout:
+    # This ensures that when the historical data finishes publishing (leaving the Kafka source idle),
+    # Flink doesn't stall the watermarks. It will automatically advance and flush the final pending metrics.
+    table_env.get_config().set("table.exec.source.idle-timeout", "5000 ms")
 
     # Add the required jars for Kafka and Avro to the Flink TableEnvironment
     jars_dir = os.path.abspath(

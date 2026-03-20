@@ -29,7 +29,7 @@ class TumblingOHLC(BaseMetric):
     def flink_ddl(self) -> str:
         return f"""
         CREATE TABLE IF NOT EXISTS {self.target_table} (
-            Ticker STRING,
+            ticker STRING,
             window_start TIMESTAMP(3),
             window_end TIMESTAMP(3),
             open_price DOUBLE,
@@ -49,7 +49,7 @@ class TumblingOHLC(BaseMetric):
         return f"""
         INSERT INTO {self.target_table}
         SELECT
-            Ticker,
+            Ticker as ticker,
             TUMBLE_START(event_time, INTERVAL '{self.window}' MINUTE) AS window_start,
             TUMBLE_END(event_time, INTERVAL '{self.window}' MINUTE) AS window_end,
             FIRST_VALUE(Price) AS open_price,

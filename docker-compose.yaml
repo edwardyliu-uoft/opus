@@ -37,12 +37,6 @@ services:
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "kafka:29092"
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
 
-  redis:
-    image: redis:7
-    container_name: redis
-    ports:
-      - "6379:6379"
-
   jobmanager:
     image: flink:2.2.0-scala_2.12-java17
     container_name: jobmanager
@@ -87,6 +81,8 @@ services:
       - spark-master
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
     environment:
-      - SPARK_WORKER_WEBUI_PORT=8081
+      - SPARK_WORKER_WEBUI_PORT=8083
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=2g
     ports:
-      - "8083:8081"
+      - "8083:8083"

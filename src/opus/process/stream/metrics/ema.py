@@ -35,7 +35,7 @@ class ExponentialMovingAverage(BaseMetric):
     def flink_ddl(self) -> str:
         return f"""
         CREATE TABLE IF NOT EXISTS {self.target_table} (
-            Ticker STRING,
+            ticker STRING,
             snapshot_time TIMESTAMP(3),
             ema_value DOUBLE
         ) WITH (
@@ -50,7 +50,7 @@ class ExponentialMovingAverage(BaseMetric):
         return f"""
         INSERT INTO {self.target_table}
         SELECT
-            Ticker,
+            Ticker as ticker,
             event_time AS snapshot_time,
             AVG(Price) OVER (
                 PARTITION BY Ticker
