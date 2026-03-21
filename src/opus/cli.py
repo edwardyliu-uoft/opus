@@ -1,5 +1,6 @@
 import argparse
 
+from opus.ingest import ingest_redis
 from opus.market.publisher import publish_market_events
 from opus.process.batch.spark_job import process_batch
 from opus.process.stream.flink_job import process_stream
@@ -60,6 +61,46 @@ def main():
         help="Comma-separated list of Kafka topics to process (default: all topics)",
     )
 
+    # > Ingest Parser
+    ingest_parser = subparsers.add_parser("ingest")
+    ingest_subparsers = ingest_parser.add_subparsers(dest="ingest_command")
+
+    # > Ingest Redis Parser
+    ingest_redis_parser = ingest_subparsers.add_parser("redis")
+    ingest_redis_parser.add_argument(
+        "--host",
+        default="localhost",
+        help="Redis host",
+    )
+    ingest_redis_parser.add_argument(
+        "--port",
+        type=int,
+        default=6379,
+        help="Redis port",
+    )
+    ingest_redis_parser.add_argument(
+        "--topics",
+        type=lambda s: [t.strip() for t in s.split(",")],
+        default=None,
+        help="Comma-separated list of Kafka topics to ingest",
+    )
+    ingest_redis_parser.add_argument(
+        "--kafka",
+        default="localhost:9092",
+        help="Kafka bootstrap servers",
+    )
+    ingest_redis_parser.add_argument(
+        "--group-id",
+        default="ingest-redis",
+        help="Kafka group ID",
+    )
+    ingest_redis_parser.add_argument(
+        "--offset",
+        default="latest",
+        choices=["earliest", "latest"],
+        help="Kafka auto offset reset policy",
+    )
+
     # > UI Parser
     ui_parser = subparsers.add_parser("ui")
     ui_subparsers = ui_parser.add_subparsers(dest="ui_command")
@@ -91,6 +132,15 @@ def main():
         process_stream(create_topics=args.create_topics)
     elif args.command == "process" and args.process_command == "batch":
         process_batch(topics=args.topics)
+    elif args.command == "ingest" and args.ingest_command == "redis":
+        ingest_redis(
+            host=args.host,
+            port=args.port,
+            kafka_topics=args.topics,
+            kafka_bootstrap_servers=args.kafka,
+            kafka_group_id=args.group_id,
+            kafka_auto_offset_reset=args.offset,
+        )
     elif args.command == "ui" and args.ui_command == "app":
         ui_app(port=args.port, address=args.address)
     else:
