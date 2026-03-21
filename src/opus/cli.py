@@ -3,7 +3,7 @@ import argparse
 from opus.market.publisher import publish_market_events
 from opus.process.batch.spark_job import process_batch
 from opus.process.stream.flink_job import process_stream
-from opus.ui import ui_ingest, ui_app
+from opus.ui import ui_app
 
 
 def main():
@@ -64,15 +64,6 @@ def main():
     ui_parser = subparsers.add_parser("ui")
     ui_subparsers = ui_parser.add_subparsers(dest="ui_command")
 
-    # > UI Ingest Parser
-    ui_ingest_parser = ui_subparsers.add_parser("ingest")
-    ui_ingest_parser.add_argument(
-        "--topics",
-        type=lambda s: [t.strip() for t in s.split(",")],
-        default=None,
-        help="Comma-separated list of Kafka topics to ingest (default: all topics)",
-    )
-
     # > UI App Parser
     ui_app_parser = ui_subparsers.add_parser("app")
     ui_app_parser.add_argument(
@@ -100,8 +91,6 @@ def main():
         process_stream(create_topics=args.create_topics)
     elif args.command == "process" and args.process_command == "batch":
         process_batch(topics=args.topics)
-    elif args.command == "ui" and args.ui_command == "ingest":
-        ui_ingest(topics=args.topics)
     elif args.command == "ui" and args.ui_command == "app":
         ui_app(port=args.port, address=args.address)
     else:
