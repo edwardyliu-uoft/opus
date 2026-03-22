@@ -1,29 +1,36 @@
 [project]
-name = "campus-cafe-event-pipeline"
-version = "1.0.0"
-description = "Kafka-based event streaming pipeline for campus cafe events."
-authors = [
-    { name = "Edward Liu", email = "edwardy.liu@mail.utoronto.ca" },
-]
+name = "opus"
+version = "0.1.0"
+description = "A Simple Real-Time Data Streaming Architecture Designed for Live Financial Dashboard Visualization and Machine Learning Model Training"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.9,<3.13"
 dependencies = [
-    "confluent-kafka>=2.3.0",
-    "certifi>=2026.0.0",
-    "requests>=2.32.0",
-    "httpx>=0.25.0",
+    "confluent-kafka",
+    "apache-flink==2.2.0",
+    "pyspark==4.0.2",
+    "streamlit",
+    "fastavro",
+    "plotly",
+    "httpx",
+    "authlib",
+    "redis",
 ]
 
-[project.optional-dependencies]
-dev = ["pytest>=7.4.0", "black>=23.0.0"]
+[dependency-groups]
+dev = ["pytest", "pytest-asyncio"]
 
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-py-modules = []
+[tool.uv]
+link-mode = "copy"
 
-[tool.black]
-line-length = 100
-target-version = ['py312']
+[tool.uv.extra-build-dependencies]
+apache-beam = ["setuptools<81"]
+
+[project.scripts]
+opus = "opus.cli:main"
+
+[tool.pytest.ini_options]
+filterwarnings = ["ignore::DeprecationWarning:pyflink.*"]

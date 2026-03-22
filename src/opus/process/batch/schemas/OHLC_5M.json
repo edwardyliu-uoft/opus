@@ -1,0 +1,10 @@
+{
+  "ticker": "string",
+  "window_start": "string",
+  "window_end": "string",
+  "open_price": "double",
+  "high_price": "double",
+  "low_price": "double",
+  "close_price": "double",
+  "volume": "long"
+}

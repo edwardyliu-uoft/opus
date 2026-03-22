@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "MarketEvent",
+  "namespace": "opus.marketplace",
+  "fields": [
+    { "name": "Date", "type": "string" },
+    { "name": "Timestamp", "type": "long", "logicalType": "timestamp-nanos" },
+    { "name": "EventType", "type": "string" },
+    { "name": "Ticker", "type": "string" },
+    { "name": "Price", "type": "double" },
+    { "name": "Quantity", "type": "int" },
+    { "name": "Exchange", "type": "string" },
+    { "name": "Conditions", "type": "string" }
+  ]
+}
