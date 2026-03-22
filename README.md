@@ -15,11 +15,10 @@ Opus can simulate a live stock market environment by replaying historical CSV da
 flowchart TD
     A(Data Sources) -->|Data Publishers| B[(Apache Kafka)]
     B -->|Stream Processing| C(Apache Flink)
-    B -.->|Batch Processing| G(Apache Spark)
-    B -->|Ingestion Worker| E[(Redis Streams)]
+    B -.->|Batch Processing| F(Apache Spark)
+    B -->|Ingestion Worker| D[(Redis Streams)]
     C -->|Metric Calculations| B
-    E -->|Reads via Streamlit| F(UI Application)
-    
+    D -->|Reads via Streamlit| E(UI Application)
 ```
 
 ---
