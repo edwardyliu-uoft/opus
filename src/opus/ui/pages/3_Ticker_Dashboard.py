@@ -31,32 +31,20 @@ st.markdown(
         padding-right: 2rem !important;
     }
     
-    /* Dark Theme Background */
-    .stApp {
-        background-color: #131722;
-        color: #d1d4dc;
-    }
-    
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background-color: #1e222d;
-        border-right: 1px solid #2a2e39;
-    }
-    
-    /* Header Container */
+    /* Header Container - using Streamlit CSS variables for auto light/dark adapt */
     .ticker-header {
         display: flex;
         align-items: center;
         margin-bottom: 1rem;
         padding: 0.5rem 0;
-        border-bottom: 1px solid #2a2e39;
+        border-bottom: 1px solid var(--secondary-background-color);
     }
     
     .ticker-symbol {
         font-size: 2rem;
         font-weight: 700;
         margin-right: 1rem;
-        color: #ffffff;
+        color: var(--text-color);
     }
     
     .current-price {
@@ -77,32 +65,15 @@ st.markdown(
         display: flex;
         gap: 2rem;
         font-size: 0.9rem;
-        color: #787b86;
+        color: var(--text-color);
+        opacity: 0.8;
         margin-bottom: 0.5rem;
     }
     
     .metric-item strong {
-        color: #d1d4dc;
+        color: var(--text-color);
+        opacity: 1;
         margin-left: 0.3rem;
-    }
-
-    /* Inputs */
-    .stTextInput > div > div > input {
-        color: #d1d4dc;
-        background-color: #2a2e39;
-        border: 1px solid #434651;
-    }
-    
-    /* Buttons */
-    .stButton > button {
-        background-color: #2962ff;
-        color: white;
-        border: none;
-        width: 100%;
-    }
-    
-    .stButton > button:hover {
-        background-color: #1e53e5;
     }
 
     /* Plotly Chart Container */
@@ -114,29 +85,12 @@ st.markdown(
     /* Status indicator styling */
     .status-connected {
         color: #26a69a;
+        font-weight: bold;
     }
     
     .status-disconnected {
         color: #ef5350;
-    }
-    
-    /* Custom scrollbar */
-    ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-    }
-    
-    ::-webkit-scrollbar-track {
-        background: #131722;
-    }
-    
-    ::-webkit-scrollbar-thumb {
-        background: #2a2e39;
-        border-radius: 4px;
-    }
-    
-    ::-webkit-scrollbar-thumb:hover {
-        background: #434651;
+        font-weight: bold;
     }
 </style>
 """,
@@ -345,10 +299,8 @@ class TickerDashboard:
                 col=1,
             )
 
-        # Layout styling to match TradingView
+        # Layout styling to match TradingView / Streamlit Native
         figure.update_layout(
-            paper_bgcolor="#131722",
-            plot_bgcolor="#131722",
             margin=dict(l=10, r=50, t=10, b=10),
             height=600,
             xaxis_rangeslider_visible=False,
@@ -359,7 +311,6 @@ class TickerDashboard:
         # X Axis styling
         figure.update_xaxes(
             showgrid=True,
-            gridcolor="#2a2e39",
             gridwidth=1,
             zeroline=False,
             showspikes=True,
@@ -367,14 +318,12 @@ class TickerDashboard:
             spikesnap="cursor",
             showline=False,
             spikedash="dash",
-            spikecolor="#787b86",
             spikethickness=1,
         )
 
         # Y Axis styling (Price)
         figure.update_yaxes(
             showgrid=True,
-            gridcolor="#2a2e39",
             gridwidth=1,
             zeroline=False,
             showspikes=True,
@@ -382,7 +331,6 @@ class TickerDashboard:
             spikesnap="cursor",
             showline=False,
             spikedash="dash",
-            spikecolor="#787b86",
             spikethickness=1,
             side="right",
             row=1,
@@ -422,6 +370,7 @@ class TickerDashboard:
                 st.plotly_chart(
                     figure,
                     width="stretch",
+                    theme="streamlit",
                     config={"displayModeBar": False, "scrollZoom": True},
                     key=f"{self.session_key}_{suffix}",
                 )

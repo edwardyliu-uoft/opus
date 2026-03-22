@@ -68,10 +68,10 @@ st.markdown(
     
     /* Card Styles */
     .stCard {
-        background-color: #262730;
+        background-color: var(--secondary-background-color);
         border-radius: 0.5rem;
         padding: 1.5rem;
-        border: 1px solid #41424C;
+        border: 1px solid var(--secondary-background-color);
         height: 100%;
     }
     
@@ -81,7 +81,7 @@ st.markdown(
         justify-content: space-between;
         align-items: flex-start;
         padding-bottom: 2rem;
-        border-bottom: 1px solid #41424C;
+        border-bottom: 1px solid var(--secondary-background-color);
         margin-bottom: 2rem;
     }
     
@@ -102,10 +102,12 @@ st.markdown(
         margin: 0;
         padding: 0;
         line-height: 1.2;
+        color: var(--text-color);
     }
     
     .company-subtitle {
-        color: #9CA3AF;
+        color: var(--text-color);
+        opacity: 0.7;
         margin-top: 0.5rem;
         font-size: 1rem;
     }
@@ -114,6 +116,7 @@ st.markdown(
         font-size: 3.5rem;
         font-weight: 700;
         text-align: right;
+        color: var(--text-color);
     }
     
     .price-change-container {
@@ -129,7 +132,8 @@ st.markdown(
     
     .metric-label {
         font-size: 0.85rem;
-        color: #9CA3AF;
+        color: var(--text-color);
+        opacity: 0.7;
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
@@ -137,7 +141,7 @@ st.markdown(
     .metric-value-large {
         font-size: 1.8rem;
         font-weight: 600;
-        color: #FFFFFF;
+        color: var(--text-color);
     }
 
     /* Analyst Badge */
@@ -157,13 +161,13 @@ st.markdown(
     /* News Item */
     .news-item {
         padding: 1.5rem;
-        border-bottom: 1px solid #41424C;
+        border-bottom: 1px solid var(--secondary-background-color);
         transition: background-color 0.2s;
         border-radius: 8px;
     }
     
     .news-item:hover {
-        background-color: rgba(255, 255, 255, 0.03);
+        background-color: var(--secondary-background-color);
     }
     
     .news-title {
@@ -181,7 +185,8 @@ st.markdown(
     
     .news-meta {
         font-size: 0.8rem;
-        color: #9CA3AF;
+        color: var(--text-color);
+        opacity: 0.6;
     }
 </style>
 """,
