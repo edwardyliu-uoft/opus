@@ -123,9 +123,20 @@ def process_stream(create_topics: bool = False):
     # By passing the source table name, they know what to select from.
     metrics: list[BaseMetric] = [
         TumblingOHLC(window=5, source_table="market_events"),
-        TumblingOHLC(window=15, source_table="market_events"),
-        ExponentialMovingAverage(periods=9, source_table="market_events"),
-        ExponentialMovingAverage(periods=12, source_table="market_events"),
+        ExponentialMovingAverage(
+            periods=9,
+            source_table="OHLC_5M",
+            ticker_column="ticker",
+            timestamp_column="window_end",
+            value_column="close_price",
+        ),
+        ExponentialMovingAverage(
+            periods=12,
+            source_table="OHLC_5M",
+            ticker_column="ticker",
+            timestamp_column="window_end",
+            value_column="close_price",
+        ),
     ]
 
     statement_set = table_env.create_statement_set()

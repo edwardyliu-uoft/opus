@@ -43,10 +43,10 @@ class RedisWorker:
         self.kafka_topic_map = {}
         for kafka_topic in self.kafka_topics:
             kafka_topic_upper = kafka_topic.upper()
-            if "OHLC" in kafka_topic_upper:
-                self.kafka_topic_map[kafka_topic] = "OHLC"
-            elif "EMA" in kafka_topic_upper:
+            if "EMA" in kafka_topic_upper:
                 self.kafka_topic_map[kafka_topic] = "EMA"
+            elif "OHLC" in kafka_topic_upper:
+                self.kafka_topic_map[kafka_topic] = "OHLC"
             else:
                 logger.warning(f"Unknown topic type for {kafka_topic}, skipping.")
 
@@ -94,7 +94,7 @@ class RedisWorker:
                 entry = {k: v for k, v in entry.items() if v is not None}
 
                 # Add to Redis Stream
-                self.client.xadd(stream_key, entry, maxlen=500)
+                self.client.xadd(stream_key, entry, maxlen=1000)
                 logger.debug(f"Pushed OHLC to `{stream_key}`: {entry}")
 
             elif message_type == "EMA":
@@ -107,7 +107,7 @@ class RedisWorker:
                 entry = {k: v for k, v in entry.items() if v is not None}
 
                 # Add to Redis Stream
-                self.client.xadd(stream_key, entry, maxlen=50000)
+                self.client.xadd(stream_key, entry, maxlen=1000)
                 logger.debug(f"Pushed EMA to `{stream_key}`: {entry}")
 
         except json.JSONDecodeError:

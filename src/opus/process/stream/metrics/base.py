@@ -22,7 +22,7 @@ class BaseMetric(ABC):
     @property
     @abstractmethod
     def name(self) -> str:
-        """The logical name of the metric (e.g. 'OHLC_5MIN', 'EMA_9')."""
+        """The logical name of the metric (e.g. 'OHLC_5M', 'EMA_9', 'OHLC_5M_EMA_9')."""
         pass
 
     @abstractmethod

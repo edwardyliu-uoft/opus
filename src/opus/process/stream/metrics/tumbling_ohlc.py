@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from ..constants import DEFAULT_KAFKA_TOPIC, KAFKA_BOOTSTRAP_SERVERS
 from .base import BaseMetric
 
@@ -36,11 +38,14 @@ class TumblingOHLC(BaseMetric):
             high_price DOUBLE,
             low_price DOUBLE,
             close_price DOUBLE,
-            volume BIGINT
+            volume BIGINT,
+            WATERMARK FOR window_end AS window_end - INTERVAL '5' SECOND
         ) WITH (
             'connector' = 'kafka',
             'topic' = '{self.target_table}',
             'properties.bootstrap.servers' = '{KAFKA_BOOTSTRAP_SERVERS}',
+            'properties.group.id' = 'ohlc-{self.window}m-{os.urandom(4).hex()}',
+            'scan.startup.mode' = 'earliest-offset',
             'format' = 'json'
         )
         """

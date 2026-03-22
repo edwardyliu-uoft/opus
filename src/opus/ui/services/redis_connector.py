@@ -105,7 +105,7 @@ class RedisConnector:
         if not self.client:
             self.connect()
 
-        stream_key = f"EMA_9:{ticker}"
+        stream_key = f"OHLC_5M_EMA_9:{ticker}"
         try:
             # xrevrange returns the data in reversed chronological order (i.e. newest first)
             dataset = self.client.xrevrange(stream_key, count=count)
@@ -135,7 +135,7 @@ class RedisConnector:
         if not self.client:
             self.connect()
 
-        stream_key = f"EMA_9:{ticker}"
+        stream_key = f"OHLC_5M_EMA_9:{ticker}"
         try:
             # xrange returns the data in chronological order (i.e. oldest first)
             dataset = self.client.xrange(
