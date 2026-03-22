@@ -35,8 +35,8 @@ def test_process_stream_initialization_and_submission(
     mock_env_settings.in_streaming_mode.assert_called_once()
     mock_table_env_class.create.assert_called_once_with(mock_settings_instance)
 
-    # Assert execute_sql was called for the source table + 4 metrics sinks = 5 times
-    assert mock_table_env_instance.execute_sql.call_count == 5
+    # Assert execute_sql was called for the source table + 3 metrics sinks = 4 times
+    assert mock_table_env_instance.execute_sql.call_count == 4
 
     # Check some of the execute_sql calls
     execute_args = [
@@ -48,32 +48,29 @@ def test_process_stream_initialization_and_submission(
 
     # 2. Next calls should be DDLs for the metrics sinks
     assert "CREATE TABLE IF NOT EXISTS OHLC_5M" in execute_args[1]
-    assert "CREATE TABLE IF NOT EXISTS OHLC_15M" in execute_args[2]
-    assert "CREATE TABLE IF NOT EXISTS EMA_9" in execute_args[3]
-    assert "CREATE TABLE IF NOT EXISTS EMA_12" in execute_args[4]
+    assert "CREATE TABLE IF NOT EXISTS OHLC_5M_EMA_9" in execute_args[2]
+    assert "CREATE TABLE IF NOT EXISTS OHLC_5M_EMA_12" in execute_args[3]
 
     # Assert statements were added to the statement set
-    assert mock_statement_set.add_insert_sql.call_count == 4
+    assert mock_statement_set.add_insert_sql.call_count == 3
 
     insert_args = [
         args[0][0] for args in mock_statement_set.add_insert_sql.call_args_list
     ]
     assert "INSERT INTO OHLC_5M" in insert_args[0]
-    assert "INSERT INTO OHLC_15M" in insert_args[1]
-    assert "INSERT INTO EMA_9" in insert_args[2]
-    assert "INSERT INTO EMA_12" in insert_args[3]
+    assert "INSERT INTO OHLC_5M_EMA_9" in insert_args[1]
+    assert "INSERT INTO OHLC_5M_EMA_12" in insert_args[2]
 
     # Assert Flink Job execution was submitted via statement_set.execute()
     mock_statement_set.execute.assert_called_once()
 
     # Verify that the topics are being pre-created using AdminClient
-    assert mock_create_topic.call_count == 4
+    assert mock_create_topic.call_count == 3
     mock_create_topic.assert_has_calls(
         [
             call("OHLC_5M", bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS),
-            call("OHLC_15M", bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS),
-            call("EMA_9", bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS),
-            call("EMA_12", bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS),
+            call("OHLC_5M_EMA_9", bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS),
+            call("OHLC_5M_EMA_12", bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS),
         ],
         any_order=True,
     )
