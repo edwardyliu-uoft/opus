@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import time
 import uuid
-from datetime import datetime
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -11,22 +10,25 @@ from plotly.subplots import make_subplots
 
 from opus.ui.services.redis_connector import RedisConnector
 
-# Page config
 st.set_page_config(
-    page_title="Real-Time Dashboard",
+    page_title="Ticker Real-Time Dashboard",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# --- STYLES ---
+# =================================================
+# Markdown Styles
+# =================================================
 st.markdown(
     """
 <style>
     /* Global Styles */
     .block-container {
-        padding-top: 1rem;
+        padding-top: 3rem !important;
         padding-bottom: 2rem;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
     }
     
     /* Dark Theme Background */
@@ -109,278 +111,348 @@ st.markdown(
         transform: translateX(-50%);
     }
     
+    /* Status indicator styling */
+    .status-connected {
+        color: #26a69a;
+    }
+    
+    .status-disconnected {
+        color: #ef5350;
+    }
+    
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #131722;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: #2a2e39;
+        border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #434651;
+    }
 </style>
 """,
     unsafe_allow_html=True,
 )
 
 
-class DashboardApp:
+class TickerDashboard:
     def __init__(self):
         self.connector: RedisConnector | None = None
         self.config = {}
-        self.placeholders = {}
+        # Generate a unique key for this session
+        self.session_key = {uuid.uuid4().hex[:8]}
 
-    def setup_sidebar(self):
+    def initialize_connector(self):
+        # Redis connection setup
+        if "connector" not in st.session_state:
+            try:
+                st.session_state["connector"] = RedisConnector(
+                    host=self.config["redis_host"],
+                    port=self.config["redis_port"],
+                )
+            except Exception as err:
+                st.error(f"Could not initialize the Redis Connector: {err}")
+                st.stop()
+        self.connector = st.session_state["connector"]
+
+        # Ensure config matches current session state (if host/port changed)
+        if (
+            self.connector.host != self.config["redis_host"]
+            or self.connector.port != self.config["redis_port"]
+        ):
+            try:
+                self.connector = RedisConnector(
+                    host=self.config["redis_host"],
+                    port=self.config["redis_port"],
+                )
+                st.session_state["connector"] = self.connector
+            except Exception as err:
+                st.error(f"Could not update the Redis Connector: {err}")
+
+    def build_sidebar(self):
         with st.sidebar:
-            st.title("Settings")
-            
-            with st.expander("Connection", expanded=True):
-                self.config["host"] = st.text_input("Redis Host", "localhost")
-                self.config["port"] = st.number_input("Redis Port", value=6379)
-                
-            with st.expander("Data Parameters", expanded=True):
+            st.title("⚙️ Settings")
+
+            with st.expander("Connection Parameters 🔌", expanded=True):
+                self.config["redis_host"] = st.text_input("Redis Host", "localhost")
+                self.config["redis_port"] = st.number_input("Redis Port", value=6379)
+
+            with st.expander("Data Parameters 📊", expanded=True):
                 self.config["ticker"] = st.text_input("Ticker Symbol", "AAPL").upper()
                 self.config["window_size"] = st.slider("Candles to Show", 20, 200, 60)
-                self.config["refresh_rate"] = st.slider("Refresh Interval (s)", 0.5, 10.0, 1.0)
-            
+                self.config["refresh_rate"] = st.slider(
+                    "Refresh Interval (s)",
+                    0.5,
+                    10.0,
+                    1.0,
+                )
             st.markdown("---")
-            self.config["running"] = st.toggle("Live Stream", value=True)
-            
+            self.config["live"] = st.toggle("🔴 Live Stream", value=True)
+            st.markdown("---")
+
+            # Status indicator
+            status_color = (
+                "status-connected" if self.config.get("live") else "status-disconnected"
+            )
+            status_text = "Streaming ●" if self.config.get("live") else "Paused ●"
+            status_html = f"""
+            <div style="font-size: 0.85rem; margin-top: 1rem;">
+                Status: <span class="{status_color}">{status_text}</span>
+            </div>
+            """
+            st.markdown(status_html, unsafe_allow_html=True)
+
+    def build_header(
+        self,
+        ticker: str,
+        dataframe_ohlc: pd.DataFrame,
+        dataframe_ema: pd.DataFrame,
+    ):
+        if dataframe_ohlc.empty:
             st.markdown(
-                """
-                <div style="font-size: 0.8rem; color: #787b86; margin-top: 2rem;">
-                    Status: <span style="color: #4caf50;">● Connected</span>
+                f"""
+                <div style="margin-top: 2rem;">
+                    <h3 style="color: #ef5350;">📊 No data available for ticker `{ticker}`</h3>
+                    <p style="color: #787b86;">Waiting for data stream to arrive...</p>
                 </div>
-                """, 
-                unsafe_allow_html=True
-            )
-
-    def init_connector(self):
-        try:
-            self.connector = RedisConnector(
-                host=self.config["host"], port=self.config["port"]
-            )
-            # Just instantiate for now, connection happens on first call inside connector
-        except Exception as e:
-            st.error(f"Could not initialize Redis Connector: {e}")
-            st.stop()
-        
-        # We need session state to persist the config if we want to redraw without full re-run logic, 
-        # but Streamlit runs top-to-bottom. We rely on st.empty() for updates.
-
-    def setup_layout(self):
-        # Header Placeholder
-        self.placeholders["header"] = st.empty()
-        
-        # Chart Placeholder 
-        self.placeholders["chart"] = st.empty()
-    
-    def create_chart_figure(self, df_ohlc, df_ema, ticker):
-        # Create subplots: 1. Price (Main) 2. Volume (Bottom)
-        fig = make_subplots(
-            rows=2, cols=1, 
-            shared_xaxes=True, 
-            vertical_spacing=0.03, 
-            subplot_titles=(None, None), 
-            row_heights=[0.7, 0.3]
-        )
-
-        # 1. Candlestick Trace
-        fig.add_trace(
-            go.Candlestick(
-                x=df_ohlc["timestamp"],
-                open=df_ohlc["open"],
-                high=df_ohlc["high"],
-                low=df_ohlc["low"],
-                close=df_ohlc["close"],
-                name="OHLC",
-                showlegend=False,
-                increasing_line_color='#26a69a', 
-                decreasing_line_color='#ef5350'
-            ),
-            row=1, col=1
-        )
-
-        # 2. EMA Trace
-        if not df_ema.empty and "ema" in df_ema.columns:
-            fig.add_trace(
-                go.Scatter(
-                    x=df_ema["timestamp"],
-                    y=df_ema["ema"],
-                    mode="lines",
-                    name="EMA 9",
-                    line=dict(color="#2962ff", width=2),
-                    showlegend=False
-                ),
-                row=1, col=1
-            )
-
-        # 3. Volume Trace
-        if "volume" in df_ohlc.columns:
-            colors = [
-                '#26a69a' if row.close >= row.open else '#ef5350' 
-                for index, row in df_ohlc.iterrows()
-            ]
-            fig.add_trace(
-                go.Bar(
-                    x=df_ohlc["timestamp"],
-                    y=df_ohlc["volume"],
-                    name="Volume",
-                    marker_color=colors,
-                    showlegend=False,
-                    opacity=0.5
-                ),
-                row=2, col=1
-            )
-
-        # Layout styling to match TradingView
-        fig.update_layout(
-            paper_bgcolor="#131722",
-            plot_bgcolor="#131722",
-            margin=dict(l=10, r=50, t=10, b=10),
-            height=700,
-            xaxis_rangeslider_visible=False,
-            dragmode="pan",
-            hovermode="x unified",
-        )
-        
-        # X Axis styling
-        fig.update_xaxes(
-            showgrid=True, 
-            gridcolor="#2a2e39", 
-            gridwidth=1,
-            zeroline=False,
-            showspikes=True, 
-            spikemode="across", 
-            spikesnap="cursor", 
-            showline=False, 
-            spikedash="dash", 
-            spikecolor="#787b86",
-            spikethickness=1
-        )
-        
-        # Y Axis styling (Price)
-        fig.update_yaxes(
-            showgrid=True, 
-            gridcolor="#2a2e39", 
-            gridwidth=1,
-            zeroline=False,
-            showspikes=True, 
-            spikemode="across", 
-            spikesnap="cursor", 
-            showline=False, 
-            spikedash="dash", 
-            spikecolor="#787b86",
-            spikethickness=1,
-            side="right",
-            row=1, col=1
-        )
-        
-        # Y Axis styling (Volume)
-        fig.update_yaxes(
-            showgrid=False, 
-            showticklabels=False,
-            row=2, col=1
-        )
-
-        return fig
-
-    def render_header(self, df_ohlc, df_ema, ticker):
-        if df_ohlc.empty:
-            self.placeholders["header"].markdown(
-                f"<h3 style='color: #ef5350;'>No data for {ticker}</h3>", 
-                unsafe_allow_html=True
+                """,
+                unsafe_allow_html=True,
             )
             return
 
-        latest = df_ohlc.iloc[-1]
-        close_price = latest["close"]
-        
-        # Calculate change
-        change = 0.0
-        pct_change = 0.0
-        
-        if len(df_ohlc) > 1:
-            prev = df_ohlc.iloc[-2]
-            change = close_price - prev["close"]
-            if prev["close"] != 0:
-                pct_change = (change / prev["close"]) * 100
+        latest_candlestick = dataframe_ohlc.iloc[-1]
+        latest_close_price = latest_candlestick["close"]
 
-        # Colors and Signs
-        color = "#26a69a" if change >= 0 else "#ef5350"
-        sign = "+" if change >= 0 else ""
-        
-        latest_vol = int(latest["volume"]) if "volume" in latest else 0
-        latest_ema = df_ema.iloc[-1]["ema"] if not df_ema.empty else 0
-        timestamp_str = latest["timestamp"].strftime("%H:%M:%S")
+        # Calculate change
+        latest_change = 0.0
+        latest_percent_change = 0.0
+
+        if len(dataframe_ohlc) > 1:
+            prev = dataframe_ohlc.iloc[-2]
+            latest_change = latest_close_price - prev["close"]
+            if prev["close"] != 0:
+                latest_percent_change = (latest_change / prev["close"]) * 100
+
+        # Calculate colors and signs
+        color = "#26a69a" if latest_change >= 0 else "#ef5350"
+        sign = "+" if latest_change >= 0 else ""
+        arrow = "▲" if latest_change >= 0 else "▼"
+
+        latest_volume = (
+            int(latest_candlestick["volume"]) if "volume" in latest_candlestick else 0
+        )
+        latest_ema = dataframe_ema.iloc[-1]["ema"] if not dataframe_ema.empty else 0
+        latest_timestamp = latest_candlestick["timestamp"].strftime("%H:%M:%S")
 
         # HTML formatting for header
         header_html = f"""
         <div class="ticker-header">
             <div class="ticker-symbol">{ticker}</div>
             <div class="current-price" style="color: {color};">
-                {close_price:.2f}
+                {latest_close_price:.2f}
             </div>
             <div class="price-change" style="background-color: {color}20; color: {color};">
-                {sign}{change:.2f} ({sign}{pct_change:.2f}%)
+                {arrow} {sign}{latest_change:.2f} ({sign}{latest_percent_change:.2f}%)
             </div>
         </div>
         
         <div class="metrics-row">
-            <div class="metric-item">Vol: <strong>{latest_vol:,}</strong></div>
-            <div class="metric-item">EMA(9): <strong>{latest_ema:.2f}</strong></div>
-            <div class="metric-item">High: <strong>{latest["high"]:.2f}</strong></div>
-            <div class="metric-item">Low: <strong>{latest["low"]:.2f}</strong></div>
-            <div style="flex-grow: 1; text-align: right; color: #787b86;">Updated: {timestamp_str}</div>
+            <div class="metric-item">📊 Vol: <strong>{latest_volume:,}</strong></div>
+            <div class="metric-item">📈 EMA(9): <strong>{latest_ema:.2f}</strong></div>
+            <div class="metric-item">⬆️ High: <strong>{latest_candlestick["high"]:.2f}</strong></div>
+            <div class="metric-item">⬇️ Low: <strong>{latest_candlestick["low"]:.2f}</strong></div>
+            <div style="flex-grow: 1; text-align: right; color: #787b86;">🕐 {latest_timestamp}</div>
         </div>
         """
-        
-        self.placeholders["header"].markdown(header_html, unsafe_allow_html=True)
 
-    def run(self):
-        self.setup_sidebar()
-        self.init_connector()
-        self.setup_layout()
+        st.markdown(header_html, unsafe_allow_html=True)
 
-        if not self.config["running"]:
-            self.placeholders["header"].info("Visualization Paused")
-            # If paused, we might still show the last data, but since loop is stopped we just return 
-            # or we could show last fetched data. Let's just return for simplicity.
-            return
+    def build_chart_figure(
+        self,
+        dataframe_ohlc: pd.DataFrame,
+        dataframe_ema: pd.DataFrame,
+        *,
+        name_ohlc: str = "Candlestick (5m)",
+        name_ema: str = "EMA 9",
+    ):
+        # Create subplots: 1. Price (Main) 2. Volume (Bottom)
+        figure = make_subplots(
+            rows=2,
+            cols=1,
+            shared_xaxes=True,
+            vertical_spacing=0.03,
+            subplot_titles=(None, None),
+            row_heights=[0.7, 0.3],
+        )
+
+        # 1. Candlestick Trace
+        figure.add_trace(
+            go.Candlestick(
+                x=dataframe_ohlc["timestamp"],
+                open=dataframe_ohlc["open"],
+                high=dataframe_ohlc["high"],
+                low=dataframe_ohlc["low"],
+                close=dataframe_ohlc["close"],
+                name=name_ohlc,
+                showlegend=False,
+                increasing_line_color="#26a69a",
+                decreasing_line_color="#ef5350",
+            ),
+            row=1,
+            col=1,
+        )
+
+        # 2. EMA Trace
+        if not dataframe_ema.empty:
+            figure.add_trace(
+                go.Scatter(
+                    x=dataframe_ema["timestamp"],
+                    y=dataframe_ema["ema"],
+                    mode="lines",
+                    name=name_ema,
+                    line=dict(color="#fffc33", width=3),
+                    showlegend=False,
+                ),
+                row=1,
+                col=1,
+            )
+
+        # 3. Volume Trace
+        if "volume" in dataframe_ohlc.columns:
+            colors = [
+                "#26a69a" if row.close >= row.open else "#ef5350"
+                for index, row in dataframe_ohlc.iterrows()
+            ]
+            figure.add_trace(
+                go.Bar(
+                    x=dataframe_ohlc["timestamp"],
+                    y=dataframe_ohlc["volume"],
+                    name="Volume",
+                    marker_color=colors,
+                    showlegend=False,
+                    opacity=0.5,
+                ),
+                row=2,
+                col=1,
+            )
+
+        # Layout styling to match TradingView
+        figure.update_layout(
+            paper_bgcolor="#131722",
+            plot_bgcolor="#131722",
+            margin=dict(l=10, r=50, t=10, b=10),
+            height=600,
+            xaxis_rangeslider_visible=False,
+            dragmode="pan",
+            hovermode="x unified",
+        )
+
+        # X Axis styling
+        figure.update_xaxes(
+            showgrid=True,
+            gridcolor="#2a2e39",
+            gridwidth=1,
+            zeroline=False,
+            showspikes=True,
+            spikemode="across",
+            spikesnap="cursor",
+            showline=False,
+            spikedash="dash",
+            spikecolor="#787b86",
+            spikethickness=1,
+        )
+
+        # Y Axis styling (Price)
+        figure.update_yaxes(
+            showgrid=True,
+            gridcolor="#2a2e39",
+            gridwidth=1,
+            zeroline=False,
+            showspikes=True,
+            spikemode="across",
+            spikesnap="cursor",
+            showline=False,
+            spikedash="dash",
+            spikecolor="#787b86",
+            spikethickness=1,
+            side="right",
+            row=1,
+            col=1,
+        )
+
+        # Y Axis styling (Volume)
+        figure.update_yaxes(showgrid=False, showticklabels=False, row=2, col=1)
+
+        return figure
+
+    def build_chart(self):
+        """Build the chart:
+        Live and paused states use the same rendering logic, but with different keys to avoid Streamlit caching issues.
+        """
 
         ticker = self.config["ticker"]
         window_size = self.config["window_size"]
+        try:
+            # Fetch data
+            dataframe_ohlc = self.connector.get_dataframe_ohlc(
+                ticker, count=window_size
+            )
+            dataframe_ema = pd.DataFrame()
+            if not dataframe_ohlc.empty:
+                dataframe_ema = self.connector.get_dataframe_ema(
+                    ticker, count=window_size
+                )
 
-        # Main Loop
-        chart_key_prefix = str(uuid.uuid4()) # Keep key somewhat stable or change on refresh
-        
-        while True:
-            try:
-                # 1. Fetch OHLC
-                df_ohlc = self.connector.get_dataframe_ohlc(ticker, count=window_size)
-                
-                # 2. Fetch EMA logic
-                df_ema = pd.DataFrame()
-                if not df_ohlc.empty:
-                    df_ema = self.connector.get_dataframe_ema(ticker, count=window_size)
+            if not dataframe_ohlc.empty:
+                self.build_header(ticker, dataframe_ohlc, dataframe_ema)
 
-                # 3. Render
-                if not df_ohlc.empty:
-                    self.render_header(df_ohlc, df_ema, ticker)
-                    
-                    fig = self.create_chart_figure(df_ohlc, df_ema, ticker)
-                    
-                    # Use unique key to force rerender properly but minimize flickering if possible
-                    # Streamlit reruns usually handle this, but inside loop we need distinct calls 
-                    # or update same placeholder.
-                    
-                    self.placeholders["chart"].plotly_chart(
-                        fig, 
-                        use_container_width=True,
-                        config={'displayModeBar': False, 'scrollZoom': True},
-                        key=f"chart_{chart_key_prefix}_{time.time()}" 
+                figure = self.build_chart_figure(dataframe_ohlc, dataframe_ema)
+
+                # Use unique key with session-based prefix to avoid duplicates
+                suffix = "live" if self.config["live"] else "paused"
+                st.plotly_chart(
+                    figure,
+                    width="stretch",
+                    config={"displayModeBar": False, "scrollZoom": True},
+                    key=f"{self.session_key}_{suffix}",
+                )
+
+                # Only show paused message when live stream is OFF
+                if not self.config["live"]:
+                    st.info(
+                        "Live stream paused ⏸️ Toggle 'Live Stream' to resume updates."
                     )
                 else:
-                    self.placeholders["header"].warning(f"Waiting for data stream for {ticker}...")
-                    self.placeholders["chart"].empty()
+                    st.info(
+                        "Live stream active 📈 Toggle 'Live Stream' to pause updates."
+                    )
+            else:
+                st.warning(f"📊 Waiting for ticker data stream '{ticker}' ...")
 
-            except Exception as e:
-                print(f"Update error: {e}")
-                
+        except Exception as err:
+            st.error(f"Could not build chart: {err}")
+
+    def render(self):
+        self.build_sidebar()
+        self.initialize_connector()
+
+        # Render chart (works for both live and paused states)
+        self.build_chart()
+
+        # Schedule next update only if running
+        if self.config["live"]:
             time.sleep(self.config["refresh_rate"])
+            st.rerun()
 
 
-if __name__ == "__main__":
-    app = DashboardApp()
-    app.run()
+dashboard = TickerDashboard()
+dashboard.render()
