@@ -145,3 +145,129 @@ uv run opus ui app
 
 The dashboard reads from Kafka metric topics (default: `OHLC_5M`, `OHLC_5M_EMA_9`) and renders live Plotly charts per selected ticker.
 By default it connects to Redis `localhost:6379` for host-based runs; if you run the dashboard inside Docker, use `redis:6379` instead.
+
+---
+
+## 5. How to Run 
+### Windows Version
+
+This project runs as a local multi-process demo. On Windows, it is recommended to use **PowerShell** and start each long-running component in a separate terminal.
+
+### Step 1: Start the infrastructure
+
+Open PowerShell in the project root and run:
+
+```bash
+docker compose up -d
+```
+### Step 2: Confirm containers are running
+
+In each new PowerShell window, first navigate to the project directory and activate the virtual environment:
+
+```bash
+cd your path
+.\.venv\Scripts\activate
+```
+Once activated, the terminal prompt should show (opus).
+### Step 3: Start the Flink stream processing job
+
+Open a new PowerShell window and run:
+```bash
+python -m opus.cli process stream --create-topics
+```
+This starts the Flink job that consumes market events from Kafka and computes the downstream metrics.
+
+Expected behavior:
+- the terminal prints startup logs
+- the process continues running
+
+### Step 4: Start the Redis worker
+
+Open a new PowerShell window and run:
+```bash
+python -m opus.cli ingest redis
+```
+This worker consumes processed Kafka topics and writes the results into Redis.
+
+Expected behavior:
+- the terminal prints startup logs
+- the process continues running while waiting for incoming data
+
+### 5. Publish Market Data
+```bash
+python -m opus.cli opus market publish <TICKER> --start <START_DATE> --end <END_DATE> --speed <MULTIPLIER>
+```
+Example
+```bash
+python -m opus.cli opus market publish AAPL --start 20181101 --end 20181103 --speed 50
+```
+This command replays local historical market data into Kafka as simulated real-time events.
+
+In this example:
+- `AAPL` is the ticker symbol
+- `20181102` is the replay date
+- `--speed 50` means the historical data is replayed 50 times faster than real time
+
+### 6: Launch the dashboard
+```bash
+python -m opus.cli ui app
+```
+Expected result
+
+If the pipeline runs successfully, the dashboard should display:
+
+- 5-minute OHLC candlesticks
+- EMA(9) and EMA(12) lines
+- volume data for the selected ticker
+
+## 7. Using Other Data 
+
+The current demo uses a local subset of historical U.S. equities market data and replays it into Kafka as simulated real-time events. However, the pipeline is not limited to the bundled sample files. It can be adapted to other datasets as long as the input records are converted into the format expected by the stream processing job.
+
+### Using another historical equity dataset
+
+For trade-event style market data, the easiest approach is to keep the downstream pipeline unchanged and only replace the input data source. In practice, this means mapping the new dataset into the same market event structure used by the publisher and publishing the transformed records to the `market` Kafka topic.
+
+At minimum, the input should provide fields equivalent to:
+
+- `Date`
+- `Timestamp`
+- `EventType`
+- `Ticker`
+- `Price`
+- `Quantity`
+- `Exchange`
+- `Conditions`
+
+If the new data can be transformed into this schema, the existing Flink job, Redis worker, and Streamlit dashboard can continue to work without major changes.
+
+### Using a different ticker
+
+Any ticker present in the local dataset can be replayed by changing the publish command. For example:
+
+```bush
+python -m opus.cli market publish MSFT --start 20181102 --end 20181102 --speed 50
+``` 
+### Using real-time market data
+
+To support real-time data, the historical publisher can be replaced with a live data publisher that continuously ingests events from an external market API, maps them to the existing `market_events` schema, and publishes them to the Kafka `market` topic. Once the events enter Kafka in the expected format, the existing Flink, Redis, and Streamlit pipeline can continue to run without major downstream changes.
+
+## 8. Trouble Shooting
+### Java version issues
+
+This project should be run with **JDK 17**. If another version is active, the Flink stream job may start but fail during execution. To verify the active Java version, run:
+
+```bush
+java -version
+javac -version
+```
+### Project path
+The project should preferably be placed in a path without spaces. In local Windows environments, PyFlink and JVM-based components may fail to load local JAR dependencies correctly when the project directory contains spaces.
+
+### `market` publish finishes immediately but no data appears
+
+If the publisher completes without errors but no data appears in Kafka, Redis, or the dashboard, the most likely cause is that the selected date does not exist in the local data directory.
+
+### `uv` command is not recognized in Windows
+The project exposes an `opus` CLI entrypoint and can also be run through `uv`. However, in some Windows environments, `uv` may not be available directly from the terminal even if the environment has been created successfully. This README uses `python -m opus.cli ...` because it was the most reliable approach in the local Windows excution.
+
