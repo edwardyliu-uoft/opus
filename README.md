@@ -5,8 +5,19 @@ Opus is a real-time market data streaming platform consisting of multiple data p
 ---
 
 ## 1. Project Overview
-Opus can simulate a live stock market environment by replaying historical CSV data into Kafka. Apache Flink processes these raw events to compute financial metrics such as OHLC candlesticks and EMAs, then publishes the results back to Kafka. Downstream pipelines can persist the required data to the database of choice, such as Redis for low-latency serving. A Streamlit dashboard can then consume the Redis data to deliver an interactive, real-time view of the market. Optionally, Apache Spark can be used for batch pipelines, such as training machine learning models.
 
+This project implements a real-time financial data processing pipeline that simulates live market data streaming and visualizes technical indicators on an interactive dashboard. The system replays historical stock market data as a simulated live stream and processes it using a distributed streaming architecture built on *Apache Kafka* and *Apache Flink*. Market data is ingested into Kafka, processed by a Flink streaming job to compute technical indicators such as **OHLC** (Open, High, Low, Close) and **EMA** (Exponential Moving Average), and then stored in Redis for fast retrieval by a Streamlit dashboard.
+
+The main goal of the project is to demonstrate how modern data engineering tools can be combined to build a scalable real-time analytics pipeline. The system architecture simulates the data flow of real-world trading platforms, where market data streams are continuously processed and visualized for monitoring and analysis.
+
+Key features include:
+
+- Real-time streaming simulation using historical market data
+- Distributed event streaming using Apache Kafka
+- Stream processing and technical indicator calculation using Apache Flink
+- Fast in-memory storage using Redis
+- Interactive visualization through a Streamlit dashboard
+                                                                                                                                                    
 ---
 
 ## 2. Architecture
@@ -21,11 +32,28 @@ flowchart TD
     D -->|Reads via Streamlit| E(UI Application)
 ```
 
+The system follows an event-driven data pipeline centered around Apache Kafka. Historical market data is first read from local data sources and published into Kafka by a market data publisher. Kafka serves as the central message bus of the system, decoupling data producers from downstream processing and allowing multiple components to consume the same stream independently.
+
+From Kafka, the pipeline branches into multiple processing paths.
+
+On the streaming side, Apache Flink consumes live market events from Kafka and performs real-time metric calculations, such as OHLC aggregation and EMA computation. The processed results can then be sent back into Kafka as derived metrics, enabling continuous stream-based analytics.
+
+On the batch side, Apache Spark can consume data from Kafka for larger-scale or offline batch processing tasks. This path is separated from the streaming worlflow because it is intended for historical analysis and non-real-time computation.
+
+A separate ingestion worker consumes processed data from Kafka and writes it into Redis Streams. Redis acts as a fast in-memory serving layer, making the latest processed market data available with low latency.
+
+Finally, the UI application, built with Streamlit, reads data from Redis Streams and renders the real-time dashboard. This design keeps the dashboard lightweight and responsive, since it does not need to query Kafka or perform heavy computations directly.
+
+Overall, the architecture separates data ingestion, processing, storage, and visualization into distinct components. This modular design improves model scalability, maintainability, and flexibility, while also reflecting the structure of real-world streaming analytics systems.
+
 ---
 
 ## 3. Component Analysis
 
-- **Market (`src/opus/market/`)**: Parses historical CSV files, serializes them using Confluent Avro via a Kafka Schema Registry, and publishes them into Kafka at variable speeds, synchronizing timestamps accurately.
+The system is organized into several components, each responsible for a different stage of the data pipeline. These modules work together to simulate a real-time financial data processing architecture.
+
+- **Market Module(`src/opus/market/`)**: 
+  - Parses historical CSV files, serializes them using Confluent Avro via a Kafka Schema Registry, and publishes them into Kafka at variable speeds, synchronizing timestamps accurately.
 - **Process (`src/opus/process/`)**: 
   - `stream/`: Uses Apache Flink to consume raw events and continuously calculate actionable financial metrics, including tumbling window OHLC candlesticks, EMA indicators, etc.
   - `batch/`: Uses Apache Spark for periodic batch processing, including machine learning and modeling on historical data.
