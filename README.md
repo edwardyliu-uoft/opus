@@ -1,6 +1,8 @@
 # Opus
 
-Opus is a real-time market data streaming platform consisting of multiple data pipelines that can ingest either live or historical ticker data, serialize it using Confluent Avro via Kafka Schema Registry, and transform it into actionable financial metrics such as tumbling-window OHLC candlesticks, EMAs, and more using Apache Flink (PyFlink 2.2.0). Its modular architecture also makes it straightforward to integrate with other widely used services such as Apache Spark (PySpark 4.0.2), Redis, and more.
+Opus is a real-time market data streaming platform composed of modular data pipelines that ingest both live and historical ticker data. The system serializes data using Confluent Avro with Kafka Schema Registry and processes it using Apache Flink (PyFlink 2.2.0) to generate actionable financial metrics such as tumbling-window OHLC candlesticks and exponential moving averages (EMA).
+
+Its modular architecture enables seamless integration with widely used data processing and storage systems, including Apache Spark (PySpark 4.0.2) for batch analytics and Redis for real-time data serving.
 
 ---
 
@@ -52,108 +54,246 @@ Overall, the architecture separates data ingestion, processing, storage, and vis
 
 The system is organized into several components, each responsible for a different stage of the data pipeline. These modules work together to simulate a real-time financial data processing architecture.
 
-- **Market Module(`src/opus/market/`)**: 
-  - Parses historical CSV files, serializes them using Confluent Avro via a Kafka Schema Registry, and publishes them into Kafka at variable speeds, synchronizing timestamps accurately.
-- **Process (`src/opus/process/`)**: 
-  - `stream/`: Uses Apache Flink to consume raw events and continuously calculate actionable financial metrics, including tumbling window OHLC candlesticks, EMA indicators, etc.
-  - `batch/`: Uses Apache Spark for periodic batch processing, including machine learning and modeling on historical data.
-- **Ingest (`src/opus/ingest/`)**:
-  - `redis_worker.py`: A Python worker that listens to the computed Kafka metrics topics and pushes them securely into Redis streams using the `xadd` command.
-- **UI (`src/opus/ui/`)**: A Streamlit dashboard that connects directly to Redis to visualize the latest financial indicators seamlessly.
+1. **Market Module (`src/opus/market/`)**: responsible for data ingestion and publishing. It reads historical market data stored in CSV files and converts them into structured events.
+
+    The module performs the following tasks:
+
+    - Parses historical CSV market data
+    - Serializes events using **Confluent Avro**
+    - Registers schemas through the **Kafka Schema Registry**
+    - Publishes events to **Appache Kafka topics**
+    - Supports **variable playback speeds** to simulate real-time streaming
+    - Maintains accurate timestamp synchronization when replaying historical data
+  
+    This component acts as the **data producer** in the pipeline.
+
+2. **Process Module (`src/opus/process/`)**: handles data processing and analytics. It contains both real-time and batch processing pipelines.
+
+   - **Stream Processing (`stream/`)**:
+   
+      The streaming pipeline uses **Apache Flink** to process market events in real time.
+      
+      Flink continuously consumes raw market data from Kafka and calculates financial indicators such as:
+
+      - **OHLC candlesticks** using tumbling time windows
+      - **Exponential Moving Average (EMA)**
+      - Other derived market metrics
+
+      Because Flink processes events continuously, the system can update financial indicators as new data arrives.
+  
+   - **Batch Processing (`batch/`)**:
+    
+      The batch pipeline uses **Apache Spark** to perform periodic large-scale computations on historical market data.
+
+      This layer is designed for tasks such as:
+      - Historical data analysis
+      - Feature engineering
+      - Machine learning and predictive modeling
+      - Offline financial analytics
+
+      Batch processing complements the streaming pipeline by enabling deeper analysis without requiring real-time execution.
+
+3. **Ingest Module (`src/opus/ingest/`)**: bridges the processing layer and the visualization layer.
+
+    The `redis_worker.py` component performs the following tasks:
+    - Consumes processed metric events from Kafka topics
+    - Writes the latest computed results into **Redis Streams**
+    - Uses the Redis `xadd` command to append new entries efficiently
+
+4. **UI Module (`src/opus/ui/`)**: provides an interactive dashboard for visualizing market data. It is implemented using **Streamlit** and connects directly to Redis to retrieve the latest processed data.
+
+    The dashboard displays:
+    - Candlestick charts
+    - EMA indicators
+    - Trading volume
+    - Live streaming updates
+    
+    By reading from Redis rather than Kafka, the UI remains lightweight and responsive while continuously reflecting updates from the streaming pipelines.
+
 
 ---
 
-## 4. Prerequisites
+## 4. Environment Setup
+
+This project requires several system dependencies to support distributed streaming, processing, and visualization components.
+
+### 1.System Requirements
+
+Ensure the following tools are installed on your machine:
+  
 - **Docker & Docker Compose**: For running Kafka, Kafka Schema Registry, Flink, Redis, and Spark.
-- **uv**: Ultrafast Python package installer and resolver.
-- **Java 17**: Required natively for submitting PySpark jobs
+- **Python 3.10+**
+- **Java 17**: Required for Flink and Spark
+- **uv**: Python package manager
 
----
+### 2. Verify Installation
 
-## 5. Quick Start
+Run the following commands to verify that all required tools are correctly installed:
 
-### 1. Boot Infrastructure
 ```bash
-docker-compose up -d
+docker --version
+docker compose version
+python3 --version
+java -version
+uv --version
 ```
 
-### 2. Publish Market Data
+Expected outputs should display version numbers for each tool.
+
+### 3. Clone or Download the Repository
+
+If using Git:
+
 ```bash
-opus market publish <TICKER> --start <START_DATE> --end <END_DATE> --speed <MULTIPLIER>
+git clone <your-repo-url>
+cd opus-main
 ```
 
-### 3. Start Stream Processing
+Or, if using a download ZIP file, extract it and navigate into the project directory:
+
 ```bash
-opus process stream --create-topics
+cd ~/Downloads/opus-main
 ```
 
-### 4. Start Ingestion Worker (Kafka -> Redis)
-```bash
-opus ingest redis
-```
+### 4. Install Python Dependencies
 
-### 5. Launch Dashboard
-```bash
-opus ui app
-```
+Install all required Python packages using `uv`:
 
-### 6. Run Batch/ML Job (Optional)
-```bash
-opus process batch
-```
-
----
-
-## An Example: Running the Pipeline
-
-Before executing commands, synchronize your Python environment using `uv`:
 ```bash
 uv sync
 ```
 
-### Step 1: Publishing Historical Data
-Start the publisher to ingest the `.csv.gz` files from the `data/` directory. It parses nanosecond-precision timestamps, serializes the rows to Avro, and strictly orders the events chronologically into the `market` Kafka topic.
+This command installs all dependencies defined in `pyproject.toml` and ensures a reproducible environment.
+
+Once the environment is set up, proceed to the next section to run the full pipeline.
+
+---
+
+## 5. How to Run 
+
+### Notes
+
+This pipeline requires 4 terminal windows running simultaneously:
+1. Market data publisher
+2. Flink stream processing
+3. Redis ingest worker
+4. UI dashboard
+
+**Do not close any of these processes while testing the system.**
+
+---
+
+### macOS Version
+
+This project runs as a local multi-process pipeline. On macOS, it is recommended to use the built-in **Terminal** and run each component in a separate terminal window or tab.
+
+### Step 1: Start the Infrastructure
+
+Open Terminal in the project root and run:
 
 ```bash
-uv run opus market publish AAPL --start 20181101 --end 20181105 --speed 1.0
+docker compose up -d
 ```
-*(You can adjust the speed multiplier to playback the historical data faster or slower than real-time).*
 
-### Step 2: Processing the Stream with PyFlink
-While the publisher is streaming data to the `market` topic, launch the PyFlink streaming process in another terminal. 
+### Step 2: Verify Containers
 
-This job computes aggregated metrics continuously (e.g. 5-minute Tumbling OHLC candlesticks, Exponential Moving Averages) and sinks them into derived Kafka topics.
+Check that all containers are running:
+
+```bash
+docker ps
+```
+
+Ensure the following services are running:
+- Kafka
+- Schema-registry
+- Redis
+- Jobmanager/ Taskmanager (Flink)
+- Spark-master/ Spark-worker
+
+### Step 3: Publish Market Data
+
+Open a new terminal window in the project root and run:
+
+```bash
+uv run opus market publish <TICKER> --start <START_DATE> --end <END_DATE> --speed <MULTIPLIER>
+```
+
+Example:
+
+```bash
+uv run opus market publish AAPL --start 20181101 --end 20181105 --speed 50
+```
+
+In this example:
+- `AAPL` is the ticker symbol
+- `20181102` is the replay date
+- `--speed 50` means the historical data is replayed 50 times faster than real time
+
+This command replays historical market data as a simulated live stream into Kafka.
+
+### Step 4: Start the Flink Stream Processing Job
+
+Open another new terminal window in the project root and run:
 
 ```bash
 uv run opus process stream --create-topics
 ```
-*Note: Flink jobs hang indefinitely by design. You will see PyFlink startup noise, but the terminal will appear "stuck" while it perpetually evaluates new records.*
 
-### Step 3: Ingest into Redis
-To ensure your newly processed metrics are populating downstream properly, start the ingestion worker to read the data from Kafka and insert it into Redis streams:
+This starts the Flink job that consumes market events from Kafka and computes the downstream financial metrics.
+
+Expected behavior:
+- Logs appear in the terminal
+- The process continues running
+
+### Step 5: Start the Regis Ingestion Worker
+
+Open another terminal window and run:
 
 ```bash
 uv run opus ingest redis
 ```
 
-### Step 4: Launching the Live Dashboard
-Start the Streamlit dashboard.
+This ingestion worker reads data from Kafka and inserts it into Redis Streams to ensure that newly processed metrics are propagated downstream properly.
+
+Expected behavior:
+- Logs appear in the terminal
+- The process continues running
+
+### Step 6: Launch the Live Dashboard
+
+Open another terminal window and run:
 
 ```bash
 uv run opus ui app
 ```
 
-The dashboard reads from Kafka metric topics (default: `OHLC_5M`, `OHLC_5M_EMA_9`) and renders live Plotly charts per selected ticker.
-By default it connects to Redis `localhost:6379` for host-based runs; if you run the dashboard inside Docker, use `redis:6379` instead.
+Open your browser at:
+
+```bash
+http://localhost:8501
+```
+
+Expected Result:
+
+If the pipeline runs successfully:
+- The dashboard displays 5-minute OHLC candlesticks charts
+- EMA indicators (e.g., EMA(9), EMA(12)) are overlaid on the chart
+- Trading volume
+- The chart updates continuously as new data flows through the pipeline
+
+### Important Notes
+
+- If the dashboard does not update, ensure the market publisher is still running
+- Increasing `--speed` will make updates appear faster
+- The dashboard only shows the most recent N candles, so it may appear as if only a small portion of data is displayed
 
 ---
 
-## 5. How to Run 
 ### Windows Version
 
-This project runs as a local multi-process demo. On Windows, it is recommended to use **PowerShell** and start each long-running component in a separate terminal.
+This project runs as a local multi-process pipeline. On Windows, it is recommended to use **PowerShell** and start each long-running component in a separate terminal.
 
-### Step 1: Start the infrastructure
+### Step 1: Start the Infrastructure
 
 Open PowerShell in the project root and run:
 
@@ -169,19 +309,20 @@ cd your path
 .\.venv\Scripts\activate
 ```
 Once activated, the terminal prompt should show (opus).
+
 ### Step 3: Start the Flink stream processing job
 
 Open a new PowerShell window and run:
 ```bash
 python -m opus.cli process stream --create-topics
 ```
-This starts the Flink job that consumes market events from Kafka and computes the downstream metrics.
+This starts the Flink job that consumes market events from Kafka and computes the downstream financial metrics.
 
 Expected behavior:
 - the terminal prints startup logs
 - the process continues running
 
-### Step 4: Start the Redis worker
+### Step 4: Start the Redis Ingestion Worker
 
 Open a new PowerShell window and run:
 ```bash
@@ -190,16 +331,16 @@ python -m opus.cli ingest redis
 This worker consumes processed Kafka topics and writes the results into Redis.
 
 Expected behavior:
-- the terminal prints startup logs
-- the process continues running while waiting for incoming data
+- Logs appear in the terminal
+- The process continues running while waiting for incoming data
 
-### 5. Publish Market Data
+### Step 5: Publish Market Data
 ```bash
 python -m opus.cli opus market publish <TICKER> --start <START_DATE> --end <END_DATE> --speed <MULTIPLIER>
 ```
 Example
 ```bash
-python -m opus.cli opus market publish AAPL --start 20181101 --end 20181103 --speed 50
+python -m opus.cli opus market publish AAPL --start 20181101 --end 20181105 --speed 50
 ```
 This command replays local historical market data into Kafka as simulated real-time events.
 
@@ -208,17 +349,41 @@ In this example:
 - `20181102` is the replay date
 - `--speed 50` means the historical data is replayed 50 times faster than real time
 
-### 6: Launch the dashboard
+### Step 6: Launch the dashboard
 ```bash
 python -m opus.cli ui app
 ```
-Expected result
+Expected result:
 
 If the pipeline runs successfully, the dashboard should display:
-
 - 5-minute OHLC candlesticks
 - EMA(9) and EMA(12) lines
 - volume data for the selected ticker
+
+---
+
+## 6. Data Source
+
+The dataset used in this project consists of historical high-frequency trade data for 58 publicly traded companies (e.g., Apple, Amazon, Tesla). The data was originally purchased from Algoseek, a financial data provider specializing in institutional-grade historical market data.
+
+Algoseek provides detailed market microstructure data, including trades, quotes, and order book information derived from U.S. equity exchanges. In this project, we use tick-level trade data, where each row represents an individual trade transaction recorded in the market. All datasets share the same schema and structure across different stocks.
+
+The data is stored in compressed `.csv.gz` format, with each file corresponding to a single stock (e.g., `AAPL.csv.gz`). Each file includes the following fields:
+
+| Field | Description |
+|------|-------------|
+| Date | Trading date in YYYYMMDD format |
+| Timestamp | High-precision timestamp of the trade event |
+| EventType | Type of market event (e.g., TRADE) |
+| Ticker | Stock ticker symbol |
+| Price | Trade execution price |
+| Quantity | Number of shares traded |
+| Exchange | Exchange where the trade occurred |
+| Conditions | Exchange-specific trade condition codes |
+
+These fields allow the reconstruction of market activity at a very fine temporal resolution and are commonly used in quantitative finance research, algorithmic trading, and market microstructure analysis.
+
+---
 
 ## 7. Using Other Data 
 
@@ -252,6 +417,8 @@ python -m opus.cli market publish MSFT --start 20181102 --end 20181102 --speed 5
 
 To support real-time data, the historical publisher can be replaced with a live data publisher that continuously ingests events from an external market API, maps them to the existing `market_events` schema, and publishes them to the Kafka `market` topic. Once the events enter Kafka in the expected format, the existing Flink, Redis, and Streamlit pipeline can continue to run without major downstream changes.
 
+---
+
 ## 8. Trouble Shooting
 ### Java version issues
 
@@ -271,5 +438,16 @@ If the publisher completes without errors but no data appears in Kafka, Redis, o
 ### `uv` command is not recognized in Windows
 The project exposes an `opus` CLI entrypoint and can also be run through `uv`. However, in some Windows environments, `uv` may not be available directly from the terminal even if the environment has been created successfully. This README uses `python -m opus.cli ...` because it was the most reliable approach in the local Windows excution.
 
+---
 
-123
+## 9. Next Steps
+
+Possible future extensions of the project include:
+
+- Integrating a news API stream into the dashboard so that market data and related news events can be viewed together in real time.
+- Adding real-time analysis feedback that connects news events with short-term price movements, allowing the dashboard to highlight unusual patterns and explain market behavior as new data arrives
+- Extending the pipeline with predictive models for future candlestick estimation.
+- The current implementation of the EMA is an approximation based on a simplified streaming algorithm. It does not fully match the standard financial EMA calculation. We plan to refine the implementation to align with the conventional EMA definition used in quantitative finance.
+- Supporting multiple tickers in the dashboard so that users can compare price behavior and technical indicators across different stocks.
+- Adding alert functions for rapid price changes, unusual volume spikes, or indicator crossovers.
+- Improving the dashboard with richer interaction features such as ticker filters, time-range controls, and metric selection.
