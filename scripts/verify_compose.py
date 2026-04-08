@@ -42,3 +42,6 @@ if __name__ == "__main__":
     check_http_endpoint("http://127.0.0.1:8083", "Spark Worker Web UI")
 
     print("--- Verification Complete ---")
+
+
+
